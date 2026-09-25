@@ -32,8 +32,8 @@ variables:
   # CHANGE THESE TWO VALUES
   # ----------------------------------------------------------
 
-  agentPool: 'YOUR-SELF-HOSTED-AGENT-POOL'
-  azureServiceConnection: 'YOUR-AZURE-ARM-SERVICE-CONNECTION'
+#   agentPool: 'YOUR-SELF-HOSTED-AGENT-POOL'
+  azureServiceConnection: 'SVC-AZ-ARM-250926'
 
   # ----------------------------------------------------------
   # Terraform directory
