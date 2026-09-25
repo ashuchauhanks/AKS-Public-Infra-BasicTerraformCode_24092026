@@ -11,7 +11,7 @@ module "rg" {
 }
 
 module "vnet" {
-    depends_on          = [module.rg]
+  depends_on          = [module.rg]
   source              = "../../modules/azurerm_virtual_network"
   vnet_name           = "vnet-aks-dev"
   resource_group_name = module.rg.rg_name
@@ -21,7 +21,7 @@ module "vnet" {
 }
 
 module "subnet" {
-    depends_on          = [module.vnet]
+  depends_on          = [module.vnet]
   source              = "../../modules/azurerm_subnet"
   subnet_name         = "subnet-aks-dev"
   resource_group_name = module.rg.rg_name
@@ -30,7 +30,7 @@ module "subnet" {
 }
 
 module "log_analytics" {
-    depends_on          = [module.rg, module.vnet, module.subnet]
+  depends_on                    = [module.rg, module.vnet, module.subnet]
   source                        = "../../modules/azurerm_log_analytics_workspace"
   log_analytics_workpspace_name = "log-analytics-aks-dev"
   location                      = module.rg.location
@@ -41,7 +41,7 @@ module "log_analytics" {
 }
 
 module "aks" {
-    depends_on          = [module.rg, module.vnet, module.subnet, module.log_analytics]
+  depends_on                 = [module.rg, module.vnet, module.subnet, module.log_analytics]
   source                     = "../../modules/azurerm_kubernetes_cluster"
   name                       = "aks-dev"
   location                   = module.rg.location

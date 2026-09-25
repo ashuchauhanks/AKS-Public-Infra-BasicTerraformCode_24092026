@@ -9,10 +9,10 @@ terraform {
 
   }
   backend "azurerm" {
-      resource_group_name  = "rg-terraform-ashu"
-      storage_account_name = "ashustoragestate"
-      container_name       = "tfstate"
-      key                  = "dev.tfstate"
+    resource_group_name  = "rg-terraform-ashu"
+    storage_account_name = "ashustoragestate"
+    container_name       = "tfstate"
+    key                  = "dev.tfstate"
   }
 }
 
