@@ -12,11 +12,13 @@ parameters:
   values:
     - dev
     - prod
+
 - name: action
   displayName: 'Terraform Action'
   type: string
-  default: apply
+  default: plan
   values:
+    - plan
     - apply
     - destroy
 
@@ -123,10 +125,12 @@ stages:
         artifact: '$(terraformArtifact)'
         publishLocation: 'pipeline'
 
+
 - stage: TerraformApply
   displayName: 'Terraform Apply'
   dependsOn: TerraformPlan
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq('${{ parameters.action }}', 'apply'))
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq('${{ parameters.action }}', 'apply'), eq(variables['Build.Reason'], 'Manual'))
+
   jobs:
   - deployment: Apply
     displayName: 'Apply Terraform Plan'
@@ -137,6 +141,7 @@ stages:
       runOnce:
         deploy:
           steps:
+
           - task: DownloadPipelineArtifact@2
             displayName: 'Download Terraform Plan'
             inputs:
@@ -164,11 +169,11 @@ stages:
               environmentServiceNameAzureRM: '$(azureServiceConnection)'
               commandOptions: '$(Pipeline.Workspace)/terraform-plan/tfplan'
 
-
 - stage: TerraformDestroy
   displayName: 'Terraform Destroy'
   dependsOn: TerraformPlan
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq('${{ parameters.action }}', 'destroy'))
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq('${{ parameters.action }}', 'destroy'), eq(variables['Build.Reason'], 'Manual'))
+
   jobs:
   - deployment: Destroy
     displayName: 'Destroy Terraform Infrastructure'
