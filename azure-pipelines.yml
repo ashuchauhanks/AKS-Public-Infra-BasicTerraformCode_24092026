@@ -12,6 +12,13 @@ parameters:
   values:
     - dev
     - prod
+- name: action
+  displayName: 'Terraform Action'
+  type: string
+  default: apply
+  values:
+    - apply
+    - destroy
 
 variables:
   agentPool: 'selfhost-aks'
@@ -156,3 +163,40 @@ stages:
               workingDirectory: '$(terraformWorkingDirectory)'
               environmentServiceNameAzureRM: '$(azureServiceConnection)'
               commandOptions: '$(Pipeline.Workspace)/terraform-plan/tfplan'
+
+
+- stage: TerraformDestroy
+  displayName: 'Terraform Destroy'
+  dependsOn: TerraformPlan
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq('${{ parameters.action }}', 'destroy'))
+  jobs:
+  - deployment: Destroy
+    displayName: 'Destroy Terraform Infrastructure'
+    pool:
+      name: $(agentPool)
+    environment: 'terraform-${{ parameters.environment }}'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init for Destroy'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(terraformWorkingDirectory)'
+              backendServiceArm: '$(azureServiceConnection)'
+              backendAzureRmResourceGroupName: 'rg-terraform-ashu'
+              backendAzureRmStorageAccountName: 'ashustoragestate'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: '${{ parameters.environment }}.tfstate'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Destroy'
+            inputs:
+              provider: 'azurerm'
+              command: 'destroy'
+              workingDirectory: '$(terraformWorkingDirectory)'
+              environmentServiceNameAzureRM: '$(azureServiceConnection)'
+              commandOptions: '-auto-approve'
