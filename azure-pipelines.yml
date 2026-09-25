@@ -32,7 +32,10 @@ stages:
     steps:
 
     - bash: |
-        if ! command -v az >/dev/null 2>&1; then
+        if command -v az >/dev/null 2>&1; then
+          echo "Azure CLI already installed"
+        else
+          echo "Azure CLI not found. Installing..."
           curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
         fi
         az version
@@ -41,13 +44,24 @@ stages:
     - bash: |
         NEED_INSTALL=false
 
-        command -v git >/dev/null 2>&1 || NEED_INSTALL=true
-        command -v unzip >/dev/null 2>&1 || NEED_INSTALL=true
-        python3 -c "import venv" >/dev/null 2>&1 || NEED_INSTALL=true
+        if ! command -v git >/dev/null 2>&1; then
+          NEED_INSTALL=true
+        fi
+
+        if ! command -v unzip >/dev/null 2>&1; then
+          NEED_INSTALL=true
+        fi
+
+        if ! python3 -c "import venv" >/dev/null 2>&1; then
+          NEED_INSTALL=true
+        fi
 
         if [ "$NEED_INSTALL" = true ]; then
+          echo "Required packages missing. Installing..."
           sudo apt-get update
           sudo apt-get install -y git unzip python3-venv
+        else
+          echo "Git, unzip and python3-venv already installed"
         fi
 
         git --version
@@ -56,25 +70,33 @@ stages:
       displayName: 'Check / Install Git, Unzip and Python'
 
     - task: TerraformInstaller@1
-      displayName: 'Install Terraform'
+      displayName: 'Check / Install Terraform'
       inputs:
         terraformVersion: '$(terraformVersion)'
 
     - bash: |
-        if ! command -v tflint >/dev/null 2>&1; then
+        if command -v tflint >/dev/null 2>&1; then
+          echo "TFLint already installed"
+        else
+          echo "TFLint not found. Installing..."
           curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | sudo bash
         fi
+
         tflint --version
-      displayName: 'Install TFLint'
+      displayName: 'Check / Install TFLint'
 
     - bash: |
-        if [ ! -x /opt/checkov/bin/checkov ]; then
+        if [ -x /opt/checkov/bin/checkov ]; then
+          echo "Checkov already installed"
+        else
+          echo "Checkov not found. Installing..."
           sudo python3 -m venv /opt/checkov
           sudo /opt/checkov/bin/pip install --upgrade pip
           sudo /opt/checkov/bin/pip install checkov
         fi
+
         sudo /opt/checkov/bin/checkov --version
-      displayName: 'Install Checkov'
+      displayName: 'Check / Install Checkov'
 
 - stage: TerraformPlan
   displayName: 'Terraform Scan Validate and Plan'
