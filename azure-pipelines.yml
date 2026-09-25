@@ -33,39 +33,50 @@ stages:
 
     - bash: |
         if command -v az >/dev/null 2>&1; then
-          echo "Azure CLI already installed"
+          echo "Azure CLI already installed."
         else
           echo "Azure CLI not found. Installing..."
           curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
         fi
+
         az version
       displayName: 'Check / Install Azure CLI'
 
     - bash: |
         NEED_INSTALL=false
 
-        if ! command -v git >/dev/null 2>&1; then
-          NEED_INSTALL=true
-        fi
-
-        if ! command -v unzip >/dev/null 2>&1; then
-          NEED_INSTALL=true
-        fi
-
-        if ! python3 -c "import venv" >/dev/null 2>&1; then
-          NEED_INSTALL=true
-        fi
+        command -v git >/dev/null 2>&1 || NEED_INSTALL=true
+        command -v unzip >/dev/null 2>&1 || NEED_INSTALL=true
+        python3 -c "import venv" >/dev/null 2>&1 || NEED_INSTALL=true
 
         if [ "$NEED_INSTALL" = true ]; then
-          echo "Required packages missing. Installing..."
+
+          echo "Required packages missing."
+
+          while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+                sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || \
+                sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+            echo "Waiting for apt/dpkg to finish..."
+            sleep 5
+          done
+
+          echo "apt/dpkg is available."
+
           sudo apt-get update
           sudo apt-get install -y git unzip python3-venv
+
         else
-          echo "Git, unzip and python3-venv already installed"
+          echo "Git, unzip and python3-venv are already installed."
         fi
 
+        echo "Git:"
         git --version
+
+        echo "Unzip:"
+        command -v unzip
         unzip -v | head -n 1
+
+        echo "Python:"
         python3 --version
       displayName: 'Check / Install Git, Unzip and Python'
 
@@ -76,7 +87,7 @@ stages:
 
     - bash: |
         if command -v tflint >/dev/null 2>&1; then
-          echo "TFLint already installed"
+          echo "TFLint already installed."
         else
           echo "TFLint not found. Installing..."
           curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | sudo bash
@@ -87,9 +98,10 @@ stages:
 
     - bash: |
         if [ -x /opt/checkov/bin/checkov ]; then
-          echo "Checkov already installed"
+          echo "Checkov already installed."
         else
           echo "Checkov not found. Installing..."
+
           sudo python3 -m venv /opt/checkov
           sudo /opt/checkov/bin/pip install --upgrade pip
           sudo /opt/checkov/bin/pip install checkov
@@ -97,6 +109,7 @@ stages:
 
         sudo /opt/checkov/bin/checkov --version
       displayName: 'Check / Install Checkov'
+
 
 - stage: TerraformPlan
   displayName: 'Terraform Scan Validate and Plan'
