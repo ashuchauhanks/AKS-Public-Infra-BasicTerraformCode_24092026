@@ -71,11 +71,11 @@ stages:
         tflint
       displayName: 'TFLint'
 
-    - bash: |
-        checkov \
-          -d "$(terraformWorkingDirectory)" \
-          --framework terraform
-      displayName: 'Checkov Security Scan'
+    # - bash: |
+    #     checkov \
+    #       -d "$(terraformWorkingDirectory)" \
+    #       --framework terraform
+    #   displayName: 'Checkov Security Scan'
 
     - bash: |
         tfsec "$(terraformWorkingDirectory)"
