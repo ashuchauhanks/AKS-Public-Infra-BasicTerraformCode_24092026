@@ -1,0 +1,486 @@
+# ============================================================
+# Azure DevOps Terraform Pipeline
+# GitHub -> ADO -> Self Hosted Agent -> Azure
+# ============================================================
+
+trigger:
+  branches:
+    include:
+      - main
+
+# ============================================================
+# PARAMETERS
+# ============================================================
+
+parameters:
+- name: environment
+  displayName: 'Select Terraform Environment'
+  type: string
+  default: dev
+  values:
+    - dev
+    - prod
+
+
+# ============================================================
+# VARIABLES
+# ============================================================
+
+variables:
+
+  # ----------------------------------------------------------
+  # CHANGE THESE TWO VALUES
+  # ----------------------------------------------------------
+
+  agentPool: 'YOUR-SELF-HOSTED-AGENT-POOL'
+  azureServiceConnection: 'YOUR-AZURE-ARM-SERVICE-CONNECTION'
+
+  # ----------------------------------------------------------
+  # Terraform directory
+  # ----------------------------------------------------------
+
+  terraformWorkingDirectory: 'environments/${{ parameters.environment }}'
+
+  # Terraform version to install if missing
+  terraformVersion: '1.9.8'
+
+  # Artifact name
+  terraformArtifact: 'terraform-plan'
+
+
+# ============================================================
+# STAGE 1 - TOOL CHECK / INSTALL
+# ============================================================
+
+stages:
+
+- stage: ToolSetup
+  displayName: 'Tool Check and Installation'
+
+  jobs:
+
+  - job: InstallTools
+    displayName: 'Check Azure CLI and Terraform'
+
+    pool:
+      name: $(agentPool)
+
+    steps:
+
+    # --------------------------------------------------------
+    # Check Azure CLI
+    # --------------------------------------------------------
+
+    - bash: |
+
+        echo "=========================================="
+        echo "Checking Azure CLI"
+        echo "=========================================="
+
+        if command -v az >/dev/null 2>&1
+        then
+          echo "Azure CLI already installed."
+          az version
+        else
+          echo "Azure CLI NOT found."
+          echo "Installing Azure CLI..."
+
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+          echo "Azure CLI installation completed."
+          az version
+        fi
+
+      displayName: 'Check / Install Azure CLI'
+
+
+    # --------------------------------------------------------
+    # Check Terraform
+    # --------------------------------------------------------
+
+    - bash: |
+
+        echo "=========================================="
+        echo "Checking Terraform"
+        echo "=========================================="
+
+        REQUIRED_VERSION="$(terraformVersion)"
+
+        if command -v terraform >/dev/null 2>&1
+        then
+
+          CURRENT_VERSION=$(terraform version -json 2>/dev/null | \
+            grep -o '"terraform_version":"[^"]*"' | \
+            cut -d'"' -f4)
+
+          echo "Terraform already installed."
+          echo "Installed version: $CURRENT_VERSION"
+
+        else
+
+          echo "Terraform NOT found."
+          echo "Installing Terraform ${REQUIRED_VERSION}..."
+
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            gnupg \
+            software-properties-common \
+            curl
+
+          curl -fsSL https://apt.releases.hashicorp.com/gpg \
+            | sudo gpg --dearmor \
+            -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+          echo \
+            "deb [arch=$(dpkg --print-architecture) \
+            signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+            https://apt.releases.hashicorp.com \
+            $(lsb_release -cs) main" \
+            | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+          sudo apt-get update
+
+          sudo apt-get install -y terraform
+
+          echo "Terraform installation completed."
+
+        fi
+
+        echo "Terraform version:"
+        terraform version
+
+      displayName: 'Check / Install Terraform'
+
+
+    # --------------------------------------------------------
+    # Check Git
+    # --------------------------------------------------------
+
+    - bash: |
+
+        echo "=========================================="
+        echo "Checking Git"
+        echo "=========================================="
+
+        if command -v git >/dev/null 2>&1
+        then
+          git --version
+        else
+          echo "Git not found. Installing..."
+          sudo apt-get update
+          sudo apt-get install -y git
+          git --version
+        fi
+
+      displayName: 'Check / Install Git'
+
+
+# ============================================================
+# STAGE 2 - TERRAFORM SCAN + VALIDATE + PLAN
+# ============================================================
+
+- stage: TerraformPlan
+  displayName: 'Terraform Scan Validate and Plan'
+
+  dependsOn: ToolSetup
+  condition: succeeded()
+
+  jobs:
+
+  - job: Plan
+    displayName: 'Terraform Scan Validate Plan'
+
+    pool:
+      name: $(agentPool)
+
+    steps:
+
+    # --------------------------------------------------------
+    # CHECK TOOLS AGAIN
+    # --------------------------------------------------------
+
+    - bash: |
+
+        echo "Azure CLI:"
+        az version
+
+        echo ""
+        echo "Terraform:"
+        terraform version
+
+      displayName: 'Verify Tools'
+
+
+    # --------------------------------------------------------
+    # TERRAFORM FORMAT CHECK
+    # --------------------------------------------------------
+
+    - bash: |
+
+        cd "$(terraformWorkingDirectory)"
+
+        echo "Running Terraform Format Check..."
+
+        terraform fmt -check -recursive
+
+      displayName: 'Terraform Format Check'
+
+
+    # --------------------------------------------------------
+    # AZURE LOGIN
+    # --------------------------------------------------------
+
+    - task: AzureCLI@2
+      displayName: 'Azure Login'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+
+          echo "Azure authentication successful."
+
+          az account show
+
+          echo ""
+          echo "Subscription:"
+          az account show \
+            --query "{Name:name,SubscriptionId:id,TenantId:tenantId}" \
+            -o table
+
+
+    # --------------------------------------------------------
+    # TERRAFORM INIT
+    # --------------------------------------------------------
+
+    - task: AzureCLI@2
+      displayName: 'Terraform Init'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        workingDirectory: '$(terraformWorkingDirectory)'
+        inlineScript: |
+
+          export ARM_USE_AZURECLI=true
+
+          terraform init
+
+
+    # --------------------------------------------------------
+    # TERRAFORM VALIDATE
+    # --------------------------------------------------------
+
+    - task: AzureCLI@2
+      displayName: 'Terraform Validate'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        workingDirectory: '$(terraformWorkingDirectory)'
+        inlineScript: |
+
+          export ARM_USE_AZURECLI=true
+
+          terraform validate
+
+
+    # --------------------------------------------------------
+    # TERRAFORM SECURITY SCAN - CHECKOV
+    # --------------------------------------------------------
+
+    - bash: |
+
+        echo "=========================================="
+        echo "Terraform Security Scan - Checkov"
+        echo "=========================================="
+
+        if command -v checkov >/dev/null 2>&1
+        then
+          echo "Checkov already installed."
+          checkov --version
+        else
+          echo "Checkov not found."
+          echo "Installing Checkov permanently on agent..."
+
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+
+          sudo pip3 install checkov
+
+          echo "Checkov installation completed."
+          checkov --version
+        fi
+
+        echo ""
+        echo "Running Checkov..."
+
+        checkov \
+          -d "$(terraformWorkingDirectory)" \
+          --framework terraform
+
+      displayName: 'Terraform Security Scan - Checkov'
+
+
+    # --------------------------------------------------------
+    # TERRAFORM PLAN
+    # --------------------------------------------------------
+
+    - task: AzureCLI@2
+      displayName: 'Terraform Plan'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        workingDirectory: '$(terraformWorkingDirectory)'
+        inlineScript: |
+
+          export ARM_USE_AZURECLI=true
+
+          echo "Creating Terraform Plan..."
+
+          terraform plan \
+            -out="$(Build.ArtifactStagingDirectory)/tfplan"
+
+
+    # --------------------------------------------------------
+    # SHOW PLAN FILE
+    # --------------------------------------------------------
+
+    - bash: |
+
+        echo "=========================================="
+        echo "Terraform Plan Artifact"
+        echo "=========================================="
+
+        ls -lh "$(Build.ArtifactStagingDirectory)/tfplan"
+
+      displayName: 'Verify Terraform Plan'
+
+
+    # --------------------------------------------------------
+    # PUBLISH TFPLAN
+    # --------------------------------------------------------
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Terraform Plan Artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/tfplan'
+        artifact: '$(terraformArtifact)'
+        publishLocation: 'pipeline'
+
+
+# ============================================================
+# STAGE 3 - DOWNLOAD PLAN + APPLY
+# ============================================================
+
+- stage: TerraformApply
+  displayName: 'Terraform Apply'
+
+  dependsOn: TerraformPlan
+  condition: succeeded()
+
+  jobs:
+
+  - deployment: Apply
+    displayName: 'Apply Terraform Plan'
+
+    pool:
+      name: $(agentPool)
+
+    environment: 'terraform-${{ parameters.environment }}'
+
+    strategy:
+      runOnce:
+
+        deploy:
+
+          steps:
+
+          # --------------------------------------------------
+          # DOWNLOAD TFPLAN ARTIFACT
+          # --------------------------------------------------
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Terraform Plan'
+            inputs:
+              artifact: '$(terraformArtifact)'
+              path: '$(Pipeline.Workspace)/terraform-plan'
+
+
+          # --------------------------------------------------
+          # VERIFY ARTIFACT
+          # --------------------------------------------------
+
+          - bash: |
+
+              echo "=========================================="
+              echo "Downloaded Terraform Plan"
+              echo "=========================================="
+
+              find "$(Pipeline.Workspace)/terraform-plan" \
+                -type f \
+                -ls
+
+            displayName: 'Verify Downloaded Plan'
+
+
+          # --------------------------------------------------
+          # AZURE LOGIN
+          # --------------------------------------------------
+
+          - task: AzureCLI@2
+            displayName: 'Azure Login'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+
+                echo "Azure authentication successful."
+
+                az account show
+
+
+          # --------------------------------------------------
+          # TERRAFORM INIT
+          # --------------------------------------------------
+
+          - task: AzureCLI@2
+            displayName: 'Terraform Init for Apply'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              workingDirectory: '$(terraformWorkingDirectory)'
+              inlineScript: |
+
+                export ARM_USE_AZURECLI=true
+
+                terraform init
+
+
+          # --------------------------------------------------
+          # TERRAFORM APPLY
+          # --------------------------------------------------
+
+          - task: AzureCLI@2
+            displayName: 'Terraform Apply'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              workingDirectory: '$(terraformWorkingDirectory)'
+              inlineScript: |
+
+                export ARM_USE_AZURECLI=true
+
+                echo "=========================================="
+                echo "Applying Terraform Plan"
+                echo "Environment: ${{ parameters.environment }}"
+                echo "=========================================="
+
+                terraform apply \
+                  -auto-approve \
+                  "$(Pipeline.Workspace)/terraform-plan/tfplan"
