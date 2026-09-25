@@ -138,22 +138,31 @@ stages:
           --framework terraform
       displayName: 'Checkov Security Scan'
 
-    # - task: InfracostSetup@2
-    #   displayName: 'Install Infracost'
-    #   inputs:
-    #     apiKey: '$(infracostApiKey)'
+    - task: InfracostSetup@2
+      displayName: 'Install Infracost'
+      inputs:
+        apiKey: '$(infracostApiKey)'
+        version: '0.10.x'
+        currency: 'INR'
 
-    # - task: TerraformTaskV4@4
-    #   displayName: 'Terraform Init'
-    #   inputs:
-    #     provider: 'azurerm'
-    #     command: 'init'
-    #     workingDirectory: '$(terraformWorkingDirectory)'
-    #     backendServiceArm: '$(azureServiceConnection)'
-    #     backendAzureRmResourceGroupName: 'rg-terraform-ashu'
-    #     backendAzureRmStorageAccountName: 'ashustoragestate'
-    #     backendAzureRmContainerName: 'tfstate'
-    #     backendAzureRmKey: '${{ parameters.environment }}.tfstate'
+    - bash: |
+        cd "$(terraformWorkingDirectory)"
+        infracost breakdown \
+          --path=. \
+          --format=table
+      displayName: 'Infracost Cost Estimate'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Init'
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(terraformWorkingDirectory)'
+        backendServiceArm: '$(azureServiceConnection)'
+        backendAzureRmResourceGroupName: 'rg-terraform-ashu'
+        backendAzureRmStorageAccountName: 'ashustoragestate'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '${{ parameters.environment }}.tfstate'
 
     - task: TerraformTaskV4@4
       displayName: 'Terraform Validate'
