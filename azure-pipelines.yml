@@ -49,19 +49,20 @@ stages:
         az version
 
 
-- stage: TerraformPlan
-  displayName: 'Terraform Scan Validate and Plan'
+- stage: TerraformScan
+  displayName: 'Terraform Security & Quality Scan'
   dependsOn: ToolSetup
   condition: succeeded()
   jobs:
-  - job: Plan
-    displayName: 'Terraform Format Scan Validate Plan'
+  - job: Scan
+    displayName: 'Terraform Scan'
     pool:
       name: $(agentPool)
     steps:
+
     - bash: |
         cd "$(terraformWorkingDirectory)"
-        terraform fmt -recursive
+        terraform fmt -check -recursive
       displayName: 'Terraform Format Check'
 
     - bash: |
@@ -76,6 +77,10 @@ stages:
     #       --framework terraform
     #   displayName: 'Checkov Security Scan'
 
+    # - bash: |
+    #     tfsec "$(terraformWorkingDirectory)"
+    #   displayName: 'tfsec Security Scan'
+
     # - task: InfracostSetup@2
     #   displayName: 'Install Infracost'
     #   inputs:
@@ -89,6 +94,18 @@ stages:
     #       --path=. \
     #       --format=table
     #   displayName: 'Infracost Cost Estimate'
+
+
+- stage: TerraformPlan
+  displayName: 'Terraform Validate & Plan'
+  dependsOn: TerraformScan
+  condition: succeeded()
+  jobs:
+  - job: Plan
+    displayName: 'Terraform Validate & Plan'
+    pool:
+      name: $(agentPool)
+    steps:
 
     - task: TerraformTaskV4@4
       displayName: 'Terraform Init'
@@ -124,7 +141,6 @@ stages:
         targetPath: '$(Build.ArtifactStagingDirectory)/tfplan'
         artifact: '$(terraformArtifact)'
         publishLocation: 'pipeline'
-
 
 - stage: TerraformApply
   displayName: 'Terraform Apply'
