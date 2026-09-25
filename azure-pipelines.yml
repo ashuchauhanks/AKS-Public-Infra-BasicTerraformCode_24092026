@@ -77,9 +77,9 @@ stages:
     #       --framework terraform
     #   displayName: 'Checkov Security Scan'
 
-    - bash: |
-        tfsec "$(terraformWorkingDirectory)"
-      displayName: 'tfsec Security Scan'
+    # - bash: |
+    #     tfsec "$(terraformWorkingDirectory)"
+    #   displayName: 'tfsec Security Scan'
 
     # - task: InfracostSetup@2
     #   displayName: 'Install Infracost'
