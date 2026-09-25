@@ -62,24 +62,24 @@ stages:
       displayName: 'TFLint'
 
     - bash: |
-        /opt/checkov/bin/checkov \
+        checkov \
           -d "$(terraformWorkingDirectory)" \
           --framework terraform
       displayName: 'Checkov Security Scan'
 
-    - task: InfracostSetup@2
-      displayName: 'Install Infracost'
-      inputs:
-        apiKey: '$(infracostApiKey)'
-        version: '0.10.x'
-        currency: 'INR'
+    # - task: InfracostSetup@2
+    #   displayName: 'Install Infracost'
+    #   inputs:
+    #     apiKey: '$(infracostApiKey)'
+    #     version: '0.10.x'
+    #     currency: 'INR'
 
-    - bash: |
-        cd "$(terraformWorkingDirectory)"
-        infracost breakdown \
-          --path=. \
-          --format=table
-      displayName: 'Infracost Cost Estimate'
+    # - bash: |
+    #     cd "$(terraformWorkingDirectory)"
+    #     infracost breakdown \
+    #       --path=. \
+    #       --format=table
+    #   displayName: 'Infracost Cost Estimate'
 
     - task: TerraformTaskV4@4
       displayName: 'Terraform Init'
