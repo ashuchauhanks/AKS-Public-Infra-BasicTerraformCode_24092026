@@ -32,7 +32,7 @@ variables:
   # CHANGE THESE TWO VALUES
   # ----------------------------------------------------------
 
-#   agentPool: 'YOUR-SELF-HOSTED-AGENT-POOL'
+  agentPool: 'selfhost-aks'
   azureServiceConnection: 'SVC-AZ-ARM-250926'
 
   # ----------------------------------------------------------
