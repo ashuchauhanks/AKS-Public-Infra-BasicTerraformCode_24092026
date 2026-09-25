@@ -30,6 +30,7 @@ stages:
     pool:
       name: $(agentPool)
     steps:
+
     - bash: |
         if ! command -v az >/dev/null 2>&1; then
           curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
@@ -38,12 +39,21 @@ stages:
       displayName: 'Check / Install Azure CLI'
 
     - bash: |
-        if ! command -v git >/dev/null 2>&1; then
+        NEED_INSTALL=false
+
+        command -v git >/dev/null 2>&1 || NEED_INSTALL=true
+        command -v unzip >/dev/null 2>&1 || NEED_INSTALL=true
+        python3 -c "import venv" >/dev/null 2>&1 || NEED_INSTALL=true
+
+        if [ "$NEED_INSTALL" = true ]; then
           sudo apt-get update
-          sudo apt-get install -y git
+          sudo apt-get install -y git unzip python3-venv
         fi
+
         git --version
-      displayName: 'Check / Install Git'
+        unzip -v | head -n 1
+        python3 --version
+      displayName: 'Check / Install Git, Unzip and Python'
 
     - task: TerraformInstaller@1
       displayName: 'Install Terraform'
@@ -59,8 +69,6 @@ stages:
 
     - bash: |
         if [ ! -x /opt/checkov/bin/checkov ]; then
-          sudo apt-get update
-          sudo apt-get install -y python3-venv
           sudo python3 -m venv /opt/checkov
           sudo /opt/checkov/bin/pip install --upgrade pip
           sudo /opt/checkov/bin/pip install checkov
