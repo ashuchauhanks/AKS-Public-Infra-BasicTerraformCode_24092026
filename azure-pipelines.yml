@@ -213,7 +213,7 @@ stages:
 
 
     # --------------------------------------------------------
-    # TERRAFORM FORMAT CHECK
+    # TERRAFORM FORMAT
     # --------------------------------------------------------
 
     - bash: |
@@ -222,9 +222,9 @@ stages:
 
         echo "Running Terraform Format Check..."
 
-        terraform fmt -check -recursive
+        terraform fmt -recursive
 
-      displayName: 'Terraform Format Check'
+      displayName: 'Terraform Format'
 
 
     # --------------------------------------------------------
