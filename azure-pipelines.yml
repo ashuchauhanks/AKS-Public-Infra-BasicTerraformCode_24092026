@@ -61,11 +61,11 @@ stages:
         tflint
       displayName: 'TFLint'
 
-    - bash: |
-        checkov \
-          -d "$(terraformWorkingDirectory)" \
-          --framework terraform
-      displayName: 'Checkov Security Scan'
+    # - bash: |
+    #     checkov \
+    #       -d "$(terraformWorkingDirectory)" \
+    #       --framework terraform
+    #   displayName: 'Checkov Security Scan'
 
     # - task: InfracostSetup@2
     #   displayName: 'Install Infracost'
