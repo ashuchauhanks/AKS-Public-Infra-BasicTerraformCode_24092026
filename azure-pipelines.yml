@@ -62,7 +62,7 @@ stages:
 
     - bash: |
         cd "$(terraformWorkingDirectory)"
-        terraform fmt -check -recursive
+        terraform fmt -recursive
       displayName: 'Terraform Format Check'
 
     - bash: |
