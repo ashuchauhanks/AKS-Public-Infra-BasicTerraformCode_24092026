@@ -4,7 +4,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 5.6.0"
+      version = "5.7.0"
     }
 
   }
@@ -17,6 +17,13 @@ terraform {
 }
 
 provider "azurerm" {
-  features {}
+  features {
+    virtual_machine {
+      detach_implicit_data_disk_on_deletion = false
+      delete_os_disk_on_deletion            = true
+  
+      skip_shutdown_and_force_delete        = false
+    } 
+  }
 }
 
