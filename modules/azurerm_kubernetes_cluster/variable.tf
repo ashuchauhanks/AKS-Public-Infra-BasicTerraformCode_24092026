@@ -49,3 +49,9 @@ variable "dns_service_ip" {
 variable "log_analytics_workspace_id" {
   type = string
 }
+
+
+variable "acr_id" {
+  description = "Azure Container Registry ID to attach to AKS"
+  type        = string
+}
