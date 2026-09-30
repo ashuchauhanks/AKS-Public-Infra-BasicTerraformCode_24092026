@@ -1,6 +1,6 @@
 container_registries = {
   acr1 = {
-    name                = "acraksdev001"
+    name                = "acrashudevka"
     resource_group_name = "rg-aks-dev"
     location            = "centralindia"
     sku                 = "Basic"
