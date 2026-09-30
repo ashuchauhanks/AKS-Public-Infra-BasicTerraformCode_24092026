@@ -41,7 +41,7 @@ module "log_analytics" {
 }
 
 module "aks" {
-  depends_on                 = [module.rg, module.vnet, module.subnet, module.log_analytics]
+  depends_on                 = [module.rg, module.vnet, module.subnet, module.log_analytics, module.azure_acr]
   source                     = "../../modules/azurerm_kubernetes_cluster"
   name                       = "aks-dev"
   location                   = module.rg.location
@@ -56,5 +56,11 @@ module "aks" {
   service_cidr               = "10.1.0.0/16"
   dns_service_ip             = "10.1.0.10"
   log_analytics_workspace_id = module.log_analytics.id
+  acr_id = module.azure_acr.acr_ids["acr1"]
 }
 
+module "azure_acr" {
+  source = "../../modules/azure_container_registry"
+  container_registries = var.container_registries
+  depends_on = [module.rg]
+}
