@@ -1,4 +1,3 @@
-
 trigger:
   branches:
     include:
@@ -14,14 +13,20 @@ parameters:
     - dev
     - prod
 
-- name: action
-  displayName: 'Terraform Action'
-  type: string
-  default: plan
-  values:
-    - plan
-    - apply
-    - destroy
+- name: runPlan
+  displayName: 'Run Terraform Plan'
+  type: boolean
+  default: true
+
+- name: runApply
+  displayName: 'Run Terraform Apply'
+  type: boolean
+  default: false
+
+- name: runDestroy
+  displayName: 'Run Terraform Destroy'
+  type: boolean
+  default: false
 
 variables:
   agentPool: 'selfhost-aks'
@@ -35,7 +40,7 @@ stages:
 # Tool Setup
 - stage: ToolSetup
   displayName: 'Tool Setup'
-  condition: ne('${{ parameters.action }}', 'destroy')
+  condition: and(succeeded(), eq(${{ parameters.runPlan }}, true))
   jobs:
   - job: InstallTools
     displayName: 'Install Required Tools'
@@ -55,16 +60,17 @@ stages:
 - stage: TerraformScan
   displayName: 'Terraform Security & Quality Scan'
   dependsOn: ToolSetup
-  condition: and(succeeded(), ne('${{ parameters.action }}', 'destroy'))
+  condition: and(succeeded(), eq(${{ parameters.runPlan }}, true))
   jobs:
   - job: Scan
     displayName: 'Terraform Scan'
     pool:
       name: $(agentPool)
     steps:
+
     - bash: |
         cd "$(terraformWorkingDirectory)"
-        terraform fmt -recursive
+        terraform fmt -check -recursive
       displayName: 'Terraform Format Check'
 
     - bash: |
@@ -101,13 +107,14 @@ stages:
 - stage: TerraformPlan
   displayName: 'Terraform Validate & Plan'
   dependsOn: TerraformScan
-  condition: and(succeeded(), ne('${{ parameters.action }}', 'destroy'))
+  condition: and(succeeded(), eq(${{ parameters.runPlan }}, true))
   jobs:
   - job: Plan
     displayName: 'Terraform Validate & Plan'
     pool:
       name: $(agentPool)
     steps:
+
     - task: TerraformTaskV4@4
       displayName: 'Terraform Init'
       inputs:
@@ -147,7 +154,7 @@ stages:
 - stage: TerraformApply
   displayName: 'Terraform Apply'
   dependsOn: TerraformPlan
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq('${{ parameters.action }}', 'apply'), eq(variables['Build.Reason'], 'Manual'))
+  condition: and(succeeded(), eq(${{ parameters.runPlan }}, true), eq(${{ parameters.runApply }}, true), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.Reason'], 'Manual'))
   jobs:
   - deployment: Apply
     displayName: 'Apply Terraform Plan'
@@ -158,6 +165,7 @@ stages:
       runOnce:
         deploy:
           steps:
+
           - task: DownloadPipelineArtifact@2
             displayName: 'Download Terraform Plan'
             inputs:
@@ -189,7 +197,7 @@ stages:
 - stage: TerraformDestroy
   displayName: 'Terraform Destroy'
   dependsOn: []
-  condition: and(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq('${{ parameters.action }}', 'destroy'), eq(variables['Build.Reason'], 'Manual'))
+  condition: and(eq(${{ parameters.runDestroy }}, true), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.Reason'], 'Manual'))
   jobs:
   - deployment: Destroy
     displayName: 'Destroy Terraform Infrastructure'
@@ -200,6 +208,7 @@ stages:
       runOnce:
         deploy:
           steps:
+
           - task: TerraformTaskV4@4
             displayName: 'Terraform Init for Destroy'
             inputs:
